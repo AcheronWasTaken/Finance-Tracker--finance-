@@ -21,7 +21,7 @@ class Model:
             self.raw:list[dict[str, float|str]] = json.load(file)
 
         self.empty = bool(self.raw)
-        self.data = {}
+        self.data:dict[str, Subscription] = {}
 
         for entry in self.raw:
             name = entry.get("name")
@@ -34,6 +34,16 @@ class Model:
                 raise click.ClickException(f"Wrong data types found in data: Data is malformed. Manual intervention required at {cwd}")
             
             self.data.update({name: Subscription(name, monthly_expense)})
+
+    def __iter__(self):
+        return iter(self.data)
+
+    def __getitem__(self, key):
+        return self.data[key]
+
+    def __bool__(self):
+        return self.empty
+
 
         
 
