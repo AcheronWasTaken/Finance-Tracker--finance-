@@ -8,11 +8,6 @@ class Interface[T:(Model, Subscription, None)]:
     def __init__(self, data_model:T):
         self.model = data_model
 
-    def build_layout(self) -> Layout:
-        layout = Layout(Panel("Wow...such empty!"))
-        self.layout = layout
-        return layout
-
 class ModelInterface(Interface[Model]):
     def __init__(self, data_model:Model):
         super().__init__(data_model)
@@ -27,7 +22,7 @@ class ModelInterface(Interface[Model]):
 
     def build_layout(self) -> Layout:
         if not self.model:
-            return super().build_layout()
+            return Layout(Panel("Wow...such empty!"))
 
         model_table = self.build_table()
 
@@ -39,10 +34,12 @@ class ModelInterface(Interface[Model]):
                 str(subscription.monthly_expense)
             )
 
-        layout = Layout(model_table, size=10)
-        self.layout = layout
-        return layout
+        return Layout(model_table, size=10)
 
+    def view(self, update:bool=False):
+        if update:
+            self.layout = self.build_layout()
+        
 class InputInterface(Interface):
     def __init__(self, commands:list[tuple[str, function]]):
         super().__init__(None)
@@ -57,7 +54,7 @@ class InputInterface(Interface):
 
         return table
 
-    def build_layout(self, cursor:int|None = None) -> Layout:
+    def build_layout(self, cursor:int) -> Layout:
         command_table = self.build_table()
 
         for index, command_tuple in enumerate(self.commands):
@@ -70,10 +67,15 @@ class InputInterface(Interface):
                 
             command_table.add_row(f"{index + 1}.")
             command_table.add_row(name)
+        
+        return Layout(command_table)
 
-        layout = Layout(command_table)
-        self.layout = layout
-        return layout
+    def view(self, cursor:int) -> Layout:
+        self.layout = self.build_layout(cursor)
+        return self.layout
+
+    
+
 
 
 

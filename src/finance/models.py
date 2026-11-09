@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
-from typing import cast
 import click
+from .exceptions import *
 
 cwd = Path(__file__).parent
 
@@ -16,12 +16,39 @@ class Subscription:
 
 class Model:
     def __init__(self, data_file_path:str|Path):
-        Path(data_file_path).mkdir(exist_ok=True, parents=True)
-        with open(data_file_path, "r") as file:
-            self.raw:list[dict[str, float|str]] = json.load(file)
+        self.raw_file_path = data_file_path
+        self.raw = self.get_file_data()
 
         self.empty = bool(self.raw)
-        self.data:dict[str, Subscription] = {}
+        self.data = self.parse_data()
+
+    def add_subscription(self, name:str, monthly_expense:float):
+        entry_name = name.lower().strip().replace(" ", "_")
+
+        if name in self.data:
+            raise SubscriptionExists
+
+        self.data.update({entry_name: Subscription(name, monthly_expense)})
+        self.update_file_data()
+        
+    def get_file_data(self) -> list[dict]:
+        if Path(self.raw_file_path).exists():
+            with open(self.raw_file_path, "r") as file:
+                return json.load(file)
+        return []
+
+    def update_file_data(self):
+        buffer = []
+
+        for name in self.data:
+            buffer.append(self.data[name].get_raw())
+
+        Path(self.raw_file_path).mkdir(exist_ok=True, parents=True)
+        with open(self.raw_file_path, "w") as file:
+            json.dump(buffer, file)
+
+    def parse_data(self) -> dict[str, Subscription]:
+        data = {}
 
         for entry in self.raw:
             name = entry.get("name")
@@ -33,7 +60,10 @@ class Model:
             if not isinstance(name, str) or not isinstance(monthly_expense, float):
                 raise click.ClickException(f"Wrong data types found in data: Data is malformed. Manual intervention required at {cwd}")
             
-            self.data.update({name: Subscription(name, monthly_expense)})
+            data.update({name: Subscription(name, monthly_expense)})
+
+        return data
+        
 
     def __iter__(self):
         return iter(self.data)
