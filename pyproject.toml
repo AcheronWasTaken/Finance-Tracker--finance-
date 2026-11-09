@@ -1,0 +1,20 @@
+[project]
+name = "finance"
+version = "1.0.0"
+description = "CLI tool to track basic finance subcriptions and some extra features."
+requires-python = ">=3.11"
+dependencies = [
+    "click==8.5.1"
+]
+
+[project.scripts]
+finance = "finance.main:cli"
+
+[tools.flit.sdist]
+exclude = [
+    "src/finance/data"
+]
+
+[build-system]
+requires = ["flit_core<4"]
+build-backend = "flit_core.buildapi"
