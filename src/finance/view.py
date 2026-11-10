@@ -3,10 +3,9 @@ from rich.layout import Layout
 from rich.panel import Panel
 from rich.text import Text
 from rich.live import Live
-from .models import Subscription, Model, Form
+from .models import Model, Form
 from keyboard import read_event
-from rich.prompt import Prompt, FloatPrompt
-from functools import partial
+from rich.prompt import Prompt
 
 class ModelInterface:
     def __init__(self, data_model:Model):
@@ -16,12 +15,14 @@ class ModelInterface:
     def build_table(self) -> Table:
         table = Table()
 
-        table.add_column("Name")
-        table.add_column("Expense")
+        table.add_column("Subscription Name")
+        table.add_column("Subscription Expense")
 
         return table
 
     def build_layout(self) -> Layout:
+        print(self.model.data)
+
         if not self.model:
             return Layout(Panel("Wow...such empty!"))
 
@@ -31,7 +32,7 @@ class ModelInterface:
             subscription = self.model[subscription_name]
 
             model_table.add_row(
-                subscription_name,
+                subscription.name,
                 str(subscription.monthly_expense)
             )
 
@@ -47,15 +48,16 @@ class CommandInterface:
         self.commands = commands
 
     def build_table(self) -> Table:
-        table = Table()
+        table = Table.grid()
 
-        table.add_column("Index")
-        table.add_column("Command Name")
+        table.add_column()
+        table.add_column()
 
         return table
 
     def build_layout(self, cursor:int) -> Layout:
         command_table = self.build_table()
+        space = " "*2
 
         for index, name in enumerate(self.commands):
             name = Text(name)
@@ -63,7 +65,7 @@ class CommandInterface:
             if cursor == index:
                 name.stylize("yellow")
                 
-            command_table.add_row(f"{index + 1}.", name)
+            command_table.add_row(f"{index + 1}.{space}", name)
         
         return Layout(command_table, name="command")
 
@@ -101,7 +103,6 @@ class View:
         )
 
         with Live(layout, auto_refresh=False) as live:
-            count = 0
             while True:
                 event = read_event(suppress=True)
                 if event.event_type != "down":
@@ -113,18 +114,14 @@ class View:
                 elif key == "s":
                     cursor = self.shift_cursor_down(cursor, len(commands) - 1)
                 elif key == "enter" or key == "space":
+                    live.update("", refresh=True)
                     return commands[cursor]
 
                 layout["command"].update(command_interface.view(cursor))
                 live.update(layout, refresh=True)
 
-    def fill_form(self, form:Form) -> Form:
+    def fill_form(self, form:Form):
         with Live(auto_refresh=False) as live:
             for name in form:
                 form.answer(name, form.ask(name)())
                 live.refresh()
-
-            return form
-
-
-    

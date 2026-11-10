@@ -15,3 +15,6 @@ class FieldExists(APIException):
 
 class AnswerExists(APIException):
     pass
+
+class NotCompleted(RuntimeException):
+    pass

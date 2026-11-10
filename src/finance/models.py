@@ -22,7 +22,8 @@ class Field:
             return partial(
                 self.prompt_function,
                 self.prompt,
-                choices=self.choices
+                choices=self.choices,
+                case_sensitive=False
             )
         return partial(
             self.prompt_function,
@@ -32,8 +33,8 @@ class Field:
     def put(self, answer):
         self.answer = answer
 
-    def get_answer(self) -> tuple:
-        return self.name, self.answer
+    def get_answer(self) -> dict:
+        return {self.name:self.answer}
 
 class Form:
     def __init__(self):
@@ -60,6 +61,20 @@ class Form:
 
         field.put(answer)
 
+        self.answered += 1
+        if self.answered == len(self.fields):
+            self.completed = True
+
+    def get_answers(self) -> dict:
+        if not self.completed:
+            raise NotCompleted("Form is not completed")
+
+        result = {}
+        for name in self.fields:
+            result.update(self.fields[name].get_answer())
+
+        return result
+
     def __iter__(self):
         return iter(self.fields.keys())
         
@@ -73,11 +88,11 @@ class Subscription:
         return {"name": self.name, "monthly_expense": self.monthly_expense}
 
 class Model:
-    def __init__(self, data_file_path:str|Path):
-        self.raw_file_path = data_file_path
+    def __init__(self, data_folder:Path):
+        self.data_folder = data_folder
         self.raw = self.get_file_data()
 
-        self.empty = bool(self.raw)
+        self.empty = not bool(self.raw)
         self.data = self.parse_data()
 
     def add_subscription(self, name:str, monthly_expense:float):
@@ -88,6 +103,8 @@ class Model:
 
         self.data.update({entry_name: Subscription(name, monthly_expense)})
         self.update_file_data()
+
+        self.empty = False
 
     def remove_subscription(self, name:str):
         entry_name = name.lower().strip().replace(" ", "_")
@@ -100,8 +117,8 @@ class Model:
         raise SubscriptionNotFound(f"{name} subscription does not exist. Ensure the name is typed correctly.")
 
     def get_file_data(self) -> list[dict]:
-        if Path(self.raw_file_path).exists():
-            with open(self.raw_file_path, "r") as file:
+        if Path(self.data_folder / "subscriptions.json").exists():
+            with open(self.data_folder / "subscriptions.json", "r") as file:
                 return json.load(file)
         return []
 
@@ -111,8 +128,8 @@ class Model:
         for name in self.data:
             buffer.append(self.data[name].get_raw())
 
-        Path(self.raw_file_path).mkdir(exist_ok=True, parents=True)
-        with open(self.raw_file_path, "w") as file:
+        Path(self.data_folder).mkdir(exist_ok=True)
+        with open(self.data_folder / "subscriptions.json", "w") as file:
             json.dump(buffer, file)
 
     def parse_data(self) -> dict[str, Subscription]:
@@ -139,4 +156,4 @@ class Model:
         return self.data[key]
 
     def __bool__(self):
-        return self.empty        
+        return not self.empty        
