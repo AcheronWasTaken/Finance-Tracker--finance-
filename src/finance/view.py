@@ -2,15 +2,16 @@ from rich.table import Table
 from rich.layout import Layout
 from rich.panel import Panel
 from rich.text import Text
-from .models import Subscription, Model
+from rich.live import Live
+from .models import Subscription, Model, Form
+from keyboard import read_event
+from rich.prompt import Prompt, FloatPrompt
+from functools import partial
 
-class Interface[T:(Model, Subscription, None)]:
-    def __init__(self, data_model:T):
-        self.model = data_model
-
-class ModelInterface(Interface[Model]):
+class ModelInterface:
     def __init__(self, data_model:Model):
-        super().__init__(data_model)
+        self.model = data_model
+        self.layout = self.build_layout()
 
     def build_table(self) -> Table:
         table = Table()
@@ -34,16 +35,15 @@ class ModelInterface(Interface[Model]):
                 str(subscription.monthly_expense)
             )
 
-        return Layout(model_table, size=10)
+        return Layout(model_table, name="model", size=10)
 
     def view(self, update:bool=False):
         if update:
             self.layout = self.build_layout()
+        return self.layout
         
-class InputInterface(Interface):
-    def __init__(self, commands:list[tuple[str, function]]):
-        super().__init__(None)
-
+class CommandInterface:
+    def __init__(self, commands:list[str]):
         self.commands = commands
 
     def build_table(self) -> Table:
@@ -57,28 +57,74 @@ class InputInterface(Interface):
     def build_layout(self, cursor:int) -> Layout:
         command_table = self.build_table()
 
-        for index, command_tuple in enumerate(self.commands):
-            name, *_ = command_tuple
-
+        for index, name in enumerate(self.commands):
             name = Text(name)
 
             if cursor == index:
-                name.stylize("gold")
+                name.stylize("yellow")
                 
-            command_table.add_row(f"{index + 1}.")
-            command_table.add_row(name)
+            command_table.add_row(f"{index + 1}.", name)
         
-        return Layout(command_table)
+        return Layout(command_table, name="command")
 
     def view(self, cursor:int) -> Layout:
         self.layout = self.build_layout(cursor)
         return self.layout
 
+class View:
+    def __init__(self):
+        pass
+
+    @staticmethod
+    def shift_cursor_down(cursor:int, upper_bound:int):
+        if cursor == upper_bound:
+            return 0
+
+        return cursor + 1
+
+    @staticmethod
+    def shift_cursor_up(cursor:int, upper_bound:int):
+        if cursor == 0:
+            return upper_bound
+
+        return cursor - 1
+
+    def main(self, model:Model, commands:list[str]) -> str:
+        model_interface = ModelInterface(model)
+        command_interface = CommandInterface(commands)
+
+        cursor = 0
+        layout = Layout()
+        layout.split_column(
+            model_interface.view(),
+            command_interface.view(cursor)
+        )
+
+        with Live(layout, auto_refresh=False) as live:
+            count = 0
+            while True:
+                event = read_event(suppress=True)
+                if event.event_type != "down":
+                    continue
+                key = event.name
+                
+                if key == "w":
+                    cursor = self.shift_cursor_up(cursor, len(commands) - 1)
+                elif key == "s":
+                    cursor = self.shift_cursor_down(cursor, len(commands) - 1)
+                elif key == "enter" or key == "space":
+                    return commands[cursor]
+
+                layout["command"].update(command_interface.view(cursor))
+                live.update(layout, refresh=True)
+
+    def fill_form(self, form:Form) -> Form:
+        with Live(auto_refresh=False) as live:
+            for name in form:
+                form.answer(name, form.ask(name)())
+                live.refresh()
+
+            return form
+
+
     
-
-
-
-
-    
-
-        
