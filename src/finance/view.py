@@ -7,6 +7,9 @@ from .models import Model, Form
 from keyboard import read_event
 from rich.prompt import Prompt
 
+# I just found it what composition is, and why it's better than inheritance. Actually, even better, the same problem with inheritance
+# is something i experienced in this file. Man i love composition (MILC)
+
 class ModelInterface:
     def __init__(self, data_model:Model):
         self.model = data_model
@@ -21,8 +24,6 @@ class ModelInterface:
         return table
 
     def build_layout(self) -> Layout:
-        print(self.model.data)
-
         if not self.model:
             return Layout(Panel("Wow...such empty!"))
 
@@ -102,7 +103,7 @@ class View:
             command_interface.view(cursor)
         )
 
-        with Live(layout, auto_refresh=False) as live:
+        with Live(layout, auto_refresh=False, transient=True) as live:
             while True:
                 event = read_event(suppress=True)
                 if event.event_type != "down":
@@ -121,7 +122,6 @@ class View:
                 live.update(layout, refresh=True)
 
     def fill_form(self, form:Form):
-        with Live(auto_refresh=False) as live:
+        with Live(auto_refresh=False, transient=True) as live:
             for name in form:
                 form.answer(name, form.ask(name)())
-                live.refresh()

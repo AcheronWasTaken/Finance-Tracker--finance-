@@ -1,9 +1,7 @@
-from .models import Subscription, Model, Form
-from .view import CommandInterface, ModelInterface, View
-from rich.prompt import Prompt, FloatPrompt
-from rich.live import Live
+from .models import Model, Form
+from .view import View
+from rich.prompt import Prompt, FloatPrompt, Confirm
 from pathlib import Path
-import click
 
 class Controller:
     def __init__(self, data_folder:Path):
@@ -12,7 +10,7 @@ class Controller:
 
         self.commands = {
             "Add Subscription": self.add_subscription,
-            "Remove Subscription": None,
+            "Remove Subscription": self.remove_subscription,
             "Edit Subscription": None,
             "Exit": self.exit
         }
@@ -27,7 +25,7 @@ class Controller:
 
         inputs = form.get_answers()
 
-        name:str = inputs["subscription_name"]
+        name:str = inputs["subscription_name"].strip()
         expense_duration:str = inputs["expense_duration"].lower()
         expense:float = inputs["expense"]
 
@@ -37,6 +35,27 @@ class Controller:
             expense /= 12
 
         self.model.add_subscription(name, expense)
+
+    def remove_subscription(self):
+        form = Form()
+        form.add_field("subscription_name", Prompt.ask, "Subscription name")
+        form.add_field("confirm", Confirm.ask, "Are you sure?")
+
+        while True:
+            self.view.fill_form(form)
+
+            inputs = form.get_answers()
+            name = inputs["subscription_name"]
+
+            if not inputs["confirm"]:
+                return
+
+            if not self.model.search_subscription(name):
+                form.invalidate()
+                continue
+
+            self.model.remove_subscription(inputs["subscription_name"])
+            return
 
     def exit(self):
         raise SystemExit()

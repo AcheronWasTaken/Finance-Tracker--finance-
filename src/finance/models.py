@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from typing import Any
 import click
 from .exceptions import *
 from functools import partial
@@ -32,6 +33,9 @@ class Field:
 
     def put(self, answer):
         self.answer = answer
+
+    def invalidate(self):
+        self.answer = None
 
     def get_answer(self) -> dict:
         return {self.name:self.answer}
@@ -75,17 +79,26 @@ class Form:
 
         return result
 
+    def invalidate(self):
+        for field in self.fields.values():
+            field.invalidate()
+            self.completed = False
+            self.answered = 0
+
     def __iter__(self):
         return iter(self.fields.keys())
         
 class Subscription:
     def __init__(self, name:str, monthly_expense:float):
-        self.name = name.strip().title()
+        self.name = name
         self.monthly_expense = round(monthly_expense, 3)
         self.yearly_expense = round(self.monthly_expense * 12, 3)
 
     def get_raw(self):
         return {"name": self.name, "monthly_expense": self.monthly_expense}
+
+    def __bool__(self):
+        return True
 
 class Model:
     def __init__(self, data_folder:Path):
@@ -96,25 +109,27 @@ class Model:
         self.data = self.parse_data()
 
     def add_subscription(self, name:str, monthly_expense:float):
-        entry_name = name.lower().strip().replace(" ", "_")
-
-        if entry_name in self.data:
+        if name in self.data:
             raise SubscriptionExists(f"{name} subscription already exists. Please pick a different name")
 
-        self.data.update({entry_name: Subscription(name, monthly_expense)})
+        self.data.update({name: Subscription(name, monthly_expense)})
         self.update_file_data()
 
         self.empty = False
 
-    def remove_subscription(self, name:str):
-        entry_name = name.lower().strip().replace(" ", "_")
+    def remove_subscription(self, canonical_name:str):
+        if not canonical_name in self.data:
+            raise SubscriptionNotFound(f"{canonical_name} subscription does not exist. Ensure the name is typed correctly.")
 
-        if entry_name in self.data:
-            del self.data[entry_name]
-            self.update_file_data()
-            return
+        del self.data[canonical_name]
+        self.update_file_data()
 
-        raise SubscriptionNotFound(f"{name} subscription does not exist. Ensure the name is typed correctly.")
+        if not self.data:
+            self.empty = True
+        return
+
+    def search_subscription(self, canonical_name:str):
+        return self.data.get(canonical_name)
 
     def get_file_data(self) -> list[dict]:
         if Path(self.data_folder / "subscriptions.json").exists():
@@ -130,7 +145,7 @@ class Model:
 
         Path(self.data_folder).mkdir(exist_ok=True)
         with open(self.data_folder / "subscriptions.json", "w") as file:
-            json.dump(buffer, file)
+            json.dump(buffer, file, indent=4)
 
     def parse_data(self) -> dict[str, Subscription]:
         data = {}
