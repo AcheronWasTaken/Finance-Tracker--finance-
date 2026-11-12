@@ -97,6 +97,9 @@ class Subscription:
     def get_raw(self):
         return {"name": self.name, "monthly_expense": self.monthly_expense}
 
+    def set(self, key:str, value:str|float):
+        self.__dict__[key] = value
+
     def __bool__(self):
         return True
 
@@ -117,19 +120,29 @@ class Model:
 
         self.empty = False
 
-    def remove_subscription(self, canonical_name:str):
-        if not canonical_name in self.data:
-            raise SubscriptionNotFound(f"{canonical_name} subscription does not exist. Ensure the name is typed correctly.")
+    def remove_subscription(self, name:str):
+        if not name in self.data:
+            raise SubscriptionNotFound(f"{name} subscription does not exist. Ensure the name is typed correctly.")
 
-        del self.data[canonical_name]
+        del self.data[name]
         self.update_file_data()
 
         if not self.data:
             self.empty = True
         return
 
-    def search_subscription(self, canonical_name:str):
-        return self.data.get(canonical_name)
+    def update_subscription(self, name:str, key:str, value:str|float):
+        if not name in self.data:
+            raise SubscriptionNotFound(f"{name} subscription does not exist. Ensure the name is typed correctly.")
+
+        if key == "name" and value in self.data:
+            raise SubscriptionExists
+
+        subscription = self.data[name]
+
+        subscription.set(key, value)
+        if key == "name" and isinstance(value, str):
+            self.data[name] = self.data.pop(value)
 
     def get_file_data(self) -> list[dict]:
         if Path(self.data_folder / "subscriptions.json").exists():

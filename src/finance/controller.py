@@ -2,6 +2,7 @@ from .models import Model, Form
 from .view import View
 from rich.prompt import Prompt, FloatPrompt, Confirm
 from pathlib import Path
+from .exceptions import *
 
 class Controller:
     def __init__(self, data_folder:Path):
@@ -11,7 +12,7 @@ class Controller:
         self.commands = {
             "Add Subscription": self.add_subscription,
             "Remove Subscription": self.remove_subscription,
-            "Edit Subscription": None,
+            "Edit Subscription": self.edit_subscription,
             "Exit": self.exit
         }
 
@@ -50,12 +51,49 @@ class Controller:
             if not inputs["confirm"]:
                 return
 
-            if not self.model.search_subscription(name):
+            try:
+                self.model.remove_subscription(inputs["subscription_name"])
+                return
+            except SubscriptionNotFound:
                 form.invalidate()
                 continue
 
-            self.model.remove_subscription(inputs["subscription_name"])
-            return
+    def edit_subscription(self):
+        form = Form()
+        form.add_field("old_subscription_name", Prompt.ask, "Name of Subscription To Change")
+        form.add_field("new_subscription_name", Prompt.ask, "New Subscription Name ('.' to keep the same)")
+        form.add_field("expense_duration", Prompt.ask, "New Duration Of Expense ('.' to keep the same)", ["Daily", "Monthly", "Yearly", '.'])
+        form.add_field("expense", FloatPrompt.ask, "New Expense Amount ('-1' to keep the same)")
+
+        while True:
+            self.view.fill_form(form)
+
+            inputs = form.get_answers()
+            old_name = inputs["old_subscription_name"]
+            new_name = inputs["new_subscription_name"]
+            duration = inputs["expense_duration"].lower()
+            expense = inputs["expense"]
+
+            if duration == "daily":
+                expense = (expense * 365) / 12
+            elif duration == "yearly":
+                expense /= 12
+
+            for key, input in [("name", new_name), ("monthly_expense", expense)]:
+                if input == "." or int(input) == -1:
+                    continue
+
+                try:
+                    self.model.update_subscription(old_name, key, input)
+                    return
+                except SubscriptionNotFound:
+                    print("Name of the subscription to change does not exist!")
+                    form.invalidate()
+                    continue
+                except SubscriptionExists:
+                    print("A subscription with the new name already exists!")
+                    form.invalidate()
+                    continue
 
     def exit(self):
         raise SystemExit()
