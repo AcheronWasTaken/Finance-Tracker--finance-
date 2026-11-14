@@ -3,12 +3,10 @@ from rich.layout import Layout
 from rich.panel import Panel
 from rich.text import Text
 from rich.live import Live
-from .models import Model, Form
+from .forms import Form
+from .models import Model
 from keyboard import read_event
 from rich.prompt import Prompt
-
-# I just found it what composition is, and why it's better than inheritance. Actually, even better, the same problem with inheritance
-# is something i experienced in this file. Man i love composition (MILC)
 
 class ModelInterface:
     def __init__(self, data_model:Model):
@@ -122,6 +120,5 @@ class View:
                 live.update(layout, refresh=True)
 
     def fill_form(self, form:Form):
-        with Live(auto_refresh=False, transient=True) as live:
-            for name in form:
-                form.answer(name, form.ask(name)())
+        for name in form:
+            form.ask(name)

@@ -6,87 +6,6 @@ from .exceptions import *
 from functools import partial
 
 cwd = Path(__file__).parent
-
-class Field:
-    def __init__(self, name:str, func, prompt:str, choices:list=[]):
-        self.name = name
-        self.prompt_function = func
-        self.prompt = prompt
-        self.choices = choices
-        self.answer = None
-
-    def __bool__(self):
-        return bool(self.answer)
-
-    def get(self) -> partial:
-        if self.choices:
-            return partial(
-                self.prompt_function,
-                self.prompt,
-                choices=self.choices,
-                case_sensitive=False
-            )
-        return partial(
-            self.prompt_function,
-            self.prompt
-        )
-
-    def put(self, answer):
-        self.answer = answer
-
-    def invalidate(self):
-        self.answer = None
-
-    def get_answer(self) -> dict:
-        return {self.name:self.answer}
-
-class Form:
-    def __init__(self):
-        self.fields:dict[str, Field] = {}
-        self.completed = False
-        self.answered = 0
-
-    def add_field(self, name:str, func, prompt:str, choices:list=[]):
-        if name in self.fields:
-            raise FieldExists(f"Field {name} already exists in form")
-
-        self.fields.update({name: Field(name, func, prompt, choices)})
-
-    def ask(self, name:str) -> partial:
-        field = self.fields[name]
-
-        return field.get()
-
-    def answer(self, name:str, answer):
-        field = self.fields[name]
-
-        if field:
-            raise AnswerExists(f"Answer already exists for field {name}")
-
-        field.put(answer)
-
-        self.answered += 1
-        if self.answered == len(self.fields):
-            self.completed = True
-
-    def get_answers(self) -> dict:
-        if not self.completed:
-            raise NotCompleted("Form is not completed")
-
-        result = {}
-        for name in self.fields:
-            result.update(self.fields[name].get_answer())
-
-        return result
-
-    def invalidate(self):
-        for field in self.fields.values():
-            field.invalidate()
-            self.completed = False
-            self.answered = 0
-
-    def __iter__(self):
-        return iter(self.fields.keys())
         
 class Subscription:
     def __init__(self, name:str, monthly_expense:float):
@@ -113,7 +32,7 @@ class Model:
 
     def add_subscription(self, name:str, monthly_expense:float):
         if name in self.data:
-            raise SubscriptionExists(f"{name} subscription already exists. Please pick a different name")
+            raise SubscriptionExists
 
         self.data.update({name: Subscription(name, monthly_expense)})
         self.update_file_data()
@@ -122,7 +41,7 @@ class Model:
 
     def remove_subscription(self, name:str):
         if not name in self.data:
-            raise SubscriptionNotFound(f"{name} subscription does not exist. Ensure the name is typed correctly.")
+            raise SubscriptionNotFound
 
         del self.data[name]
         self.update_file_data()
@@ -133,7 +52,7 @@ class Model:
 
     def update_subscription(self, name:str, key:str, value:str|float):
         if not name in self.data:
-            raise SubscriptionNotFound(f"{name} subscription does not exist. Ensure the name is typed correctly.")
+            raise SubscriptionNotFound
 
         if key == "name" and value in self.data:
             raise SubscriptionExists
